@@ -14,6 +14,8 @@ This barely works!
 6. run `python twitter-friends-to-feeds.py` to get your friends feeds in an nice OPML file
 7. run `python twitter-lists-to-feeds.py` to get your lists feeds in an nice OPML file
 
+It will cache the request and twitter calls for 3 days. You can clear the cache by updating the `CLEAR_CACHE` env var to `true`.
+
 ## TODO
 
 - [ ] Make this work
