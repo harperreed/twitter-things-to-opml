@@ -1,0 +1,6 @@
+cache_to_disk
+python-dotenv
+python-slugify
+python-twitter
+feedparser
+feedsearch

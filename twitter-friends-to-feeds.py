@@ -1,0 +1,164 @@
+from cache_to_disk import cache_to_disk
+from cache_to_disk import delete_disk_caches_for_function
+from dotenv import load_dotenv
+from feedsearch import search
+from slugify import slugify
+from twitter import *
+import feedparser
+import os
+import sys
+
+load_dotenv()
+
+################################################################
+
+consumer_key = os.environ.get('CONSUMER_KEY')
+consumer_secret = os.environ.get('CONSUMER_SECRET')
+access_token_key = os.environ.get('ACCESS_TOKEN_KEY')
+access_token_secret = os.environ.get('ACCESS_TOKEN_SECRET')
+
+api = Twitter(
+    auth=OAuth(consumer_key=consumer_key,
+               consumer_secret=consumer_secret,
+               token=access_token_key,
+               token_secret=access_token_secret))
+
+################################################################
+
+
+screen_name = os.environ.get('SCREEN_NAME')
+
+
+################################################################
+
+clear_cache = (os.environ.get('CLEAR_CACHE')== 'True')
+functions_to_clear = ['search_feeds', 'get_feed_metadata', 'make_opml_file', 'get_twitter_friends']
+
+if clear_cache:
+    print("Clearing cache")
+    for f in functions_to_clear:
+        delete_disk_caches_for_function(f)
+    print("Done clearing cache")
+    sys.exit(0)
+
+
+################################################################
+
+OPML_START = '<?xml version="1.0" encoding="UTF-8"?><opml version="1.1"><head><title>%(title)s</title></head><body><outline text="%(title)s" title="%(title)s">'
+
+OPML_END = """</outline></body></opml>"""
+
+OPML_OUTLINE_FEED = '<outline text="%(title)s" title="%(title)s" type="rss" version="RSS" htmlUrl="%(html_url)s" xmlUrl="%(xml_url)s" />'
+
+################################################################
+
+
+@cache_to_disk(3)
+def search_feeds(url):
+    try:
+        search_feeds = search(url, as_urls=True)
+    except:
+        print("Error searching for feeds. Skipping")
+        return []
+    return search_feeds
+
+
+@cache_to_disk(3)
+def get_feed_metadata(feed_url, url):
+    try:
+        d = feedparser.parse(feed_url)
+
+        if d['feed']['title']:
+            title = d['feed']['title']
+        else:
+            title = slugify(feed_url)
+
+        feed = {
+            "url": url,
+            "title": title,
+            "feed_url": feed_url
+        }
+        return feed
+    except:
+        print("Error getting feed metadata. Skipping")
+        return {
+            "url": url,
+            "feed_url": feed_url,
+            "title": slugify(feed_url)
+        }
+        
+@cache_to_disk(3)
+def make_opml_file(opml_name, feeds):
+    opml_file = ""
+    opml_file = opml_file + (OPML_START % {'title': opml_name})
+
+    print("Found %d feeds" % len(feeds))
+    for f in feeds:
+        opml_file = opml_file + \
+            (OPML_OUTLINE_FEED %
+            {'title': f['title'], 'html_url': f['url'], 'xml_url': f['feed_url']})
+
+
+    opml_file = opml_file + (OPML_END)
+    return opml_file
+
+@cache_to_disk(3)
+def get_twitter_friends():
+    # get all twitter friends
+    get_friends = True
+    cursor = ''
+    friends = []
+    while get_friends: 
+        print("Getting friends page %s" % cursor)
+        friends_r = api.friends.list(screen_name=screen_name, count=200, cursor=cursor)
+        
+        friends = friends + friends_r['users']
+        cursor = friends_r['next_cursor_str']
+        if (cursor == '0'):
+            print("No more friends")
+            get_friends = False
+    return friends
+
+################################################################
+
+opml_name = screen_name + "'s twitter friends' feeds"
+
+friends = get_twitter_friends()
+
+print("Found %d members" % len(friends))
+
+
+if friends: 
+
+    print("Found %d members" % len(friends))
+    feeds = []
+
+    print("Searching for feeds")
+    for m in friends:
+        url = m['url']
+
+        print("\t", "@"+m['screen_name'], url)
+        if url:
+
+            found_feeds = search_feeds(url)
+            print("\t\tFound %d feeds" % len(found_feeds))
+            for f in found_feeds:
+                feed = get_feed_metadata(f, url)
+                if ('title' not in feed): 
+                    feed['title'] = slugify(feed['feed_url'])
+                print("\t\t", feed['title'])
+                feeds.append(feed)
+
+    if len(feeds) == 0:
+        print("No feeds found")
+    else:
+
+    
+        opml_contents = make_opml_file(opml_name, feeds)
+
+        print("Writing OPML file")
+        fname = slugify(screen_name + " " + opml_name) + '.opml'
+        filehandle = open(fname, 'w')
+        filehandle.write(opml_contents)
+        filehandle.close()
+
