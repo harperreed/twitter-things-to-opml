@@ -16,6 +16,17 @@ This barely works!
 
 It will cache the request and twitter calls for 3 days. You can clear the cache by updating the `CLEAR_CACHE` env var to `true`.
 
+### Output
+
+This will output a BUNCH of opml files. I suggest importing them into your feed reader and checking them out. 
+
+## Bugs
+
+- It will sometimes find duplicate feeds. I dont do anything about this.
+- It will find a billion comment feeds. I dont do anything about this either. 
+- It will sometimes crash cuz i am bad at python. I haven't done anything about this in about 20 years.
+- It will sometimes run into a site that doesn't exist, or is down. I try and catch it, but it may crash and put you into a weird cache state. 
+
 ## TODO
 
 - [ ] Make this work
@@ -26,6 +37,7 @@ It will cache the request and twitter calls for 3 days. You can clear the cache 
 - [ ] Make this work bettererererer
 
 *^ this todo list was writter by copilot. lol*
+
 
 ## License
 
